@@ -14,7 +14,7 @@ Run the below docker command replacing \<password> with a password of your choos
 
 ```docker run -itd --name db2rest --privileged=true -p 50000:50000 -p 8080:8080 -e LICENSE=accept -e DB2INST1_PASSWORD=<password> -e DBNAME=testdb -v C:\<path>\db2rest:/database ibmcom/db2:11.5.8.0```
 
-Once the image is pulled and container is running, run ```docker exec -ti db2rest```.  While in the container run the stage.sh script to build the development environment.  
+Once the image is pulled and container is running, run ```docker exec -ti db2rest bash```.  While in the container run the stage.sh script to build the development environment.  
 
 ## Running
 After the script has completed run ```make``` then ```./db2rest``` to start the application.  You can test the API endpoints using Postman, Insomnia, HTTPie, or similar tools.  The API will return a JSON object with a SQL code of zero on success.   If you stop the instance and try to stop it again, it will return a JSON object with the SQL code and related error message from the sqlca struct.  Same pattern for trying to start the instance when it is already started.
