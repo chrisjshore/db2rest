@@ -1,7 +1,14 @@
 #!/bin/bash
 
+# for current session
 export PATH=$PATH:/database/config/db2inst1/sqllib/bin
 export DB2INSTANCE=db2inst1
+
+# for future sessions
+echo 'export PATH=$PATH:/database/config/db2inst1/sqllib/bin' >> .bashrc
+echo 'export DB2INSTANCE=db2inst1' >> .bashrc
+
+usermod -a -G db2iadm1 root
 
 yum install -y git gdb vim-enhanced jansson-devel systemd-devel gnutls-devel uncrustify libtool make gettext help2man
 
