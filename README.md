@@ -1,6 +1,6 @@
 # README
 
-REST API for controlling a DB2 instance. 
+REST API for controlling a DB2 instance running in a Docker container. 
 
 ## Dependencies
 
@@ -17,7 +17,7 @@ Run the below docker command replacing \<password> with a password of your choos
 Once the image is pulled and container is running, run ```docker exec -ti db2rest bash```.  While in the container run the stage.sh script to build the development environment.  
 
 ## Running
-After the script has completed run ```make``` then ```./db2rest``` to start the application.  You can test the API endpoints using Postman, Insomnia, HTTPie, or similar tools.  The API will return a JSON object with a SQL code of zero on success.   If you stop the instance and try to stop it again, it will return a JSON object with the SQL code and related error message from the sqlca struct.  Same pattern for trying to start the instance when it is already started.
+After the script has completed, cd into /database and run ```make``` then ```./db2rest``` to start the application.  You can test the API endpoints using Postman, Insomnia, HTTPie, or similar tools.  The API will return a JSON object with a SQL code of zero on success.   If you stop the instance and try to stop it again, it will return a JSON object with the SQL code and related error message from the sqlca struct.  Same pattern for trying to start the instance when it is already started.
 
 ### Examples using HTTPie:
 ```http localhost:8080/stopinstance``` \
