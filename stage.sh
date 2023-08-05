@@ -5,8 +5,8 @@ export PATH=$PATH:/database/config/db2inst1/sqllib/bin
 export DB2INSTANCE=db2inst1
 
 # for future sessions
-echo 'export PATH=$PATH:/database/config/db2inst1/sqllib/bin' >> .bashrc
-echo 'export DB2INSTANCE=db2inst1' >> .bashrc
+echo 'export PATH=$PATH:/database/config/db2inst1/sqllib/bin' >> ~/.bashrc
+echo 'export DB2INSTANCE=db2inst1' >> ~/.bashrc
 
 usermod -a -G db2iadm1 root
 
