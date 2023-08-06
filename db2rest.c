@@ -99,6 +99,7 @@ int callback_restart_instance (const struct _u_request * request, struct _u_resp
     json = create_json(&sqlca);
 
     ulfius_set_json_body_response(response, 200, json);
+    json_decref(json);
     return U_CALLBACK_CONTINUE;
   }
   
