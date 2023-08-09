@@ -1,3 +1,5 @@
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <db2ApiDf.h>
@@ -11,7 +13,40 @@
 #define FALSE 0
 #endif
 
-void db2_start_instance(struct sqlca *sqlca){
+pthread_mutex_t lock;
+pthread_cond_t  wait;
+
+void exit_server(struct _u_instance* instance, int exit_value) {
+  printf("End framework\n");
+  
+  ulfius_stop_framework(instance);
+  ulfius_clean_instance(instance);
+
+  exit(exit_value);
+}
+
+void* signal_thread(void* arg) {
+  sigset_t *sigs = arg;
+  int res, signum;
+
+  res = sigwait(sigs, &signum);
+  if (res) {
+    printf("waiting for signals failed\n");
+    exit(1);
+  }
+  if (signum == SIGQUIT || signum == SIGINT || signum == SIGTERM || signum == SIGHUP) {
+    printf(" received close signal: %s\n", strsignal(signum));
+    pthread_mutex_lock(&lock);
+    pthread_cond_signal(&wait);
+    pthread_mutex_unlock(&lock);
+    return NULL;
+  }
+  else {
+    printf(" recieved unexpected signal: %s\n", strsignal(signum));
+  }
+}
+
+void db2_start_instance(struct sqlca *sqlca) {
   struct db2InstanceStartStruct instanceStartStruct;
 
   instanceStartStruct.iIsRemote = FALSE;
@@ -22,7 +57,7 @@ void db2_start_instance(struct sqlca *sqlca){
   db2InstanceStart(db2Version11580, &instanceStartStruct, sqlca);
 }
 
-void db2_stop_instance(struct sqlca *sqlca){
+void db2_stop_instance(struct sqlca *sqlca) {
   struct db2InstanceStopStruct instanceStopStruct;
 
   sqlefrce(SQL_ALL_USERS, NULL, SQL_ASYNCH, sqlca);
@@ -35,7 +70,7 @@ void db2_stop_instance(struct sqlca *sqlca){
   db2InstanceStop(db2Version11580, &instanceStopStruct, sqlca);
 }
 
-json_t* create_json(struct sqlca *sqlca){
+json_t* create_json(struct sqlca *sqlca) {
   char errorMsg[1024];
   int errorLen;
   json_t *json, *code, *emsg;
@@ -45,11 +80,11 @@ json_t* create_json(struct sqlca *sqlca){
 
   json_object_set(json, "sqlcode", code);
 
-  if(sqlca->sqlcode != 0){
+  if (sqlca->sqlcode != 0) {
     sqlaintp(errorMsg, 1024, 80, sqlca);
     
     errorLen = strlen(errorMsg);
-    if(errorMsg[errorLen-1] == '\n')
+    if (errorMsg[errorLen-1] == '\n')
       errorMsg[errorLen-1] = '\0';
     
     emsg = json_string(errorMsg);
@@ -95,7 +130,7 @@ int callback_restart_instance (const struct _u_request * request, struct _u_resp
 
   db2_stop_instance(&sqlca);
 
-  if(sqlca.sqlcode != 0){
+  if (sqlca.sqlcode != 0) {
     json = create_json(&sqlca);
 
     ulfius_set_json_body_response(response, 200, json);
@@ -113,13 +148,36 @@ int callback_restart_instance (const struct _u_request * request, struct _u_resp
 
 int main(void) {
   struct _u_instance instance;
+  pthread_t signal_thread_id;
+  pthread_mutexattr_t mutexattr;
+  static sigset_t close_signals;
 
   // Initialize instance with the port number
   if (ulfius_init_instance(&instance, PORT, NULL, NULL) != U_OK) {
     fprintf(stderr, "Error ulfius_init_instance, abort\n");
-    return(1);
+    return 1;
   }
 
+  if (pthread_mutex_init(&lock, NULL) || pthread_cond_init(&wait, NULL)) {
+    printf("error initializing mutex lock and condition\n");
+  }
+
+  if (sigemptyset(&close_signals) == -1 || sigaddset(&close_signals, SIGQUIT) == -1 || sigaddset(&close_signals, SIGINT) == -1 ||
+      sigaddset(&close_signals, SIGTERM) == -1 || sigaddset(&close_signals, SIGHUP) == -1 ) {
+    printf("error creating signal mask\n");
+    exit_server(&instance, 1);
+  }
+  
+  if (pthread_sigmask(SIG_BLOCK, &close_signals, NULL)) {
+    printf("error setting signal mask\n");
+    exit_server(&instance, 1);
+  }
+
+  if (pthread_create(&signal_thread_id, NULL, &signal_thread, &close_signals)) {
+    fprintf(stderr, "init - Error creating signal thread\n");
+    exit_server(&instance, 1);
+    return 1;
+  }
   // Endpoint list declarations
   ulfius_add_endpoint_by_val(&instance, "GET", "/helloworld", NULL, 0, &callback_hello_world, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/startinstance", NULL, 0, &callback_start_instance, NULL);
@@ -130,15 +188,18 @@ int main(void) {
   if (ulfius_start_framework(&instance) == U_OK) {
     printf("Start framework on port %d\n", instance.port);
 
-    // Wait for the user to press <enter> on the console to quit the application
-    getchar();
-  } else {
+    // Wait for an interrupt to quit the application
+    pthread_mutex_lock(&lock);
+    pthread_cond_wait(&wait,&lock);
+    pthread_mutex_unlock(&lock);
+  } 
+  else {
     fprintf(stderr, "Error starting framework\n");
+  } 
+
+  if (pthread_mutex_destroy(&lock) || pthread_cond_destroy(&wait)) {
+    printf("error initializing mutex lock and condition\n");
   }
-  printf("End framework\n");
 
-  ulfius_stop_framework(&instance);
-  ulfius_clean_instance(&instance);
-
-  return 0;
+  exit_server(&instance, 0);
 }
