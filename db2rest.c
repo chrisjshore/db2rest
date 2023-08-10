@@ -149,7 +149,6 @@ int callback_restart_instance (const struct _u_request * request, struct _u_resp
 int main(void) {
   struct _u_instance instance;
   pthread_t signal_thread_id;
-  pthread_mutexattr_t mutexattr;
   static sigset_t close_signals;
 
   // Initialize instance with the port number
