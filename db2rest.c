@@ -31,18 +31,18 @@ void* signal_thread(void* arg) {
 
   res = sigwait(sigs, &signum);
   if (res) {
-    printf("waiting for signals failed\n");
+    fprintf(stderr, "Waiting for signals failed\n");
     exit(1);
   }
   if (signum == SIGQUIT || signum == SIGINT || signum == SIGTERM || signum == SIGHUP) {
-    printf(" received close signal: %s\n", strsignal(signum));
+    printf(" Received close signal: %s\n", strsignal(signum));
     pthread_mutex_lock(&lock);
     pthread_cond_signal(&wait);
     pthread_mutex_unlock(&lock);
     return NULL;
   }
   else {
-    printf(" recieved unexpected signal: %s\n", strsignal(signum));
+    printf(" Recieved unexpected signal: %s\n", strsignal(signum));
   }
 }
 
@@ -159,17 +159,17 @@ int main(void) {
   }
 
   if (pthread_mutex_init(&lock, NULL) || pthread_cond_init(&wait, NULL)) {
-    printf("error initializing mutex lock and condition\n");
+    fprintf(stderr, "Error initializing mutex lock and condition\n");
   }
 
   if (sigemptyset(&close_signals) == -1 || sigaddset(&close_signals, SIGQUIT) == -1 || sigaddset(&close_signals, SIGINT) == -1 ||
       sigaddset(&close_signals, SIGTERM) == -1 || sigaddset(&close_signals, SIGHUP) == -1 ) {
-    printf("error creating signal mask\n");
+    fprintf(stderr, "Error creating signal mask\n");
     exit_server(&instance, 1);
   }
   
   if (pthread_sigmask(SIG_BLOCK, &close_signals, NULL)) {
-    printf("error setting signal mask\n");
+    fprintf(stderr, "Error setting signal mask\n");
     exit_server(&instance, 1);
   }
 
@@ -198,7 +198,7 @@ int main(void) {
   } 
 
   if (pthread_mutex_destroy(&lock) || pthread_cond_destroy(&wait)) {
-    printf("error initializing mutex lock and condition\n");
+    fprintf(stderr, "Error initializing mutex lock and condition\n");
   }
 
   exit_server(&instance, 0);
