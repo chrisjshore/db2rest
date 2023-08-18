@@ -1,5 +1,7 @@
+#include <ctype.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <db2ApiDf.h>
@@ -7,11 +9,6 @@
 #include <ulfius.h>
 
 #define PORT 8080
-
-#ifndef TRUE
-#define TRUE 1
-#define FALSE 0
-#endif
 
 pthread_mutex_t lock;
 pthread_cond_t  wait;
@@ -49,7 +46,7 @@ void* signal_thread(void* arg) {
 void db2_start_instance(struct sqlca *sqlca) {
   struct db2InstanceStartStruct instanceStartStruct;
 
-  instanceStartStruct.iIsRemote = FALSE;
+  instanceStartStruct.iIsRemote = false;
   instanceStartStruct.piRemoteInstName = NULL;
   instanceStartStruct.piCommData = NULL;
   instanceStartStruct.piStartOpts = NULL;
@@ -62,7 +59,7 @@ void db2_stop_instance(struct sqlca *sqlca) {
 
   sqlefrce(SQL_ALL_USERS, NULL, SQL_ASYNCH, sqlca);
   
-  instanceStopStruct.iIsRemote = FALSE;
+  instanceStopStruct.iIsRemote = false;
   instanceStopStruct.piRemoteInstName = NULL;
   instanceStopStruct.piCommData = NULL;
   instanceStopStruct.piStopOpts = NULL;
@@ -97,6 +94,73 @@ json_t* create_json(struct sqlca *sqlca) {
 int callback_hello_world (const struct _u_request * request, struct _u_response * response, void * user_data) {
   // basically a healthcheck
   ulfius_set_string_body_response(response, 200, "Hello World!");
+  return U_CALLBACK_CONTINUE;
+}
+
+int callback_databases (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct sqlca sqlca;
+  struct sqledinfo *info;
+  struct db2DbDirOpenScanStruct open;
+  struct db2DbDirNextEntryStructV9 entry;
+  struct db2DbDirCloseScanStruct close;
+  unsigned short entries, handle, pHandle;
+  json_t *json, *array, *sqlobj, *name, *path, *type;
+  char dbname[8], drive[20], dbtype[20];
+
+  open.piPath = NULL;
+  open.oHandle = 0;
+
+  db2DbDirOpenScan(db2Version11580, &open, &sqlca);
+  entry.iHandle = open.oHandle;
+
+  array = json_array();
+
+  for (int i =0; i < open.oNumEntries; i++) {
+        json = json_object();
+
+        db2DbDirGetNextEntry(db2Version11580, &entry, &sqlca);
+        sqlobj = create_json(&sqlca);
+        json_object_set(json, "getentry", sqlobj);
+
+        strncpy(dbname, entry.poDbDirEntry->dbname, sizeof(dbname));
+        char *copy = dbname;
+        char *trimmed = strtok_r(copy, "\r\t\n ", &copy);
+        name = json_string(trimmed);
+        json_object_set(json, "database", name);
+
+        strncpy(drive, entry.poDbDirEntry->drive, sizeof(drive));
+        copy = drive;
+        trimmed = strtok_r(copy, "\r\t\n ", &copy);
+        path = json_string(trimmed);
+        json_object_set(json, "path", path);
+
+        strncpy(dbtype, entry.poDbDirEntry->dbtype, sizeof(dbtype));
+
+        int i = strlen(dbtype) - 1;
+        while (i > 0) {
+            if (isprint(dbtype[i]) == 0 || isspace(dbtype[i]) != 0 || iscntrl(dbtype[i]) != 0) {
+                i--;
+            }
+            else break;
+        }
+
+        dbtype[i + 1] = '\0';
+
+        if (dbtype[0] == '\2') {
+          memmove(&dbtype[0], &dbtype[1], strlen(dbtype) - 1);
+        }
+
+        type = json_string(dbtype);
+        json_object_set(json, "type", type);
+
+        json_array_append(array, json);
+  }
+
+  close.iHandle = open.oHandle;
+  db2DbDirCloseScan(db2Version11580, &close, &sqlca);
+
+  ulfius_set_json_body_response(response, 200, array);
+  json_decref(json);
   return U_CALLBACK_CONTINUE;
 }
 
@@ -179,6 +243,7 @@ int main(void) {
   }
   // Endpoint list declarations
   ulfius_add_endpoint_by_val(&instance, "GET", "/helloworld", NULL, 0, &callback_hello_world, NULL);
+  ulfius_add_endpoint_by_val(&instance, "GET", "/databases", NULL, 0, &callback_databases, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/startinstance", NULL, 0, &callback_start_instance, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/stopinstance", NULL, 0, &callback_stop_instance, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/restartinstance", NULL, 0, &callback_restart_instance, NULL);
