@@ -67,6 +67,22 @@ void db2_stop_instance(struct sqlca *sqlca) {
   db2InstanceStop(db2Version11580, &instanceStopStruct, sqlca);
 }
 
+void trimDb2String(char str[]) {
+  int i = strlen(str) - 1;
+    while (i > 0) {
+      if (isprint(str[i]) == 0 || isspace(str[i]) != 0 || iscntrl(str[i]) != 0 || ispunct(str[i]) != 0) {
+        i--;
+      }
+      else break;
+    }
+
+    str[i + 1] = '\0';
+
+    if (str[0] == '\2') {
+      memmove(&str[0], &str[1], strlen(str) - 1);
+    }
+}
+
 json_t* create_json(struct sqlca *sqlca) {
   char errorMsg[1024];
   int errorLen;
@@ -123,33 +139,17 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
     json_object_set(json, "getentry", sqlobj);
 
     strncpy(dbname, entry.poDbDirEntry->dbname, sizeof(dbname));
-    char *copy = dbname;
-    char *trimmed = strtok_r(copy, "\r\t\n ", &copy);
-    name = json_string(trimmed);
+    trimDb2String(dbname);
+    name = json_string(dbname);
     json_object_set(json, "database", name);
 
     strncpy(drive, entry.poDbDirEntry->drive, sizeof(drive));
-    copy = drive;
-    trimmed = strtok_r(copy, "\r\t\n ", &copy);
-    path = json_string(trimmed);
+    trimDb2String(drive);
+    path = json_string(drive);
     json_object_set(json, "path", path);
 
     strncpy(dbtype, entry.poDbDirEntry->dbtype, sizeof(dbtype));
-
-    int i = strlen(dbtype) - 1;
-    while (i > 0) {
-      if (isprint(dbtype[i]) == 0 || isspace(dbtype[i]) != 0 || iscntrl(dbtype[i]) != 0 || ispunct(dbtype[i]) != 0) {
-        i--;
-      }
-      else break;
-    }
-
-    dbtype[i + 1] = '\0';
-
-    if (dbtype[0] == '\2') {
-      memmove(&dbtype[0], &dbtype[1], strlen(dbtype) - 1);
-    }
-
+    trimDb2String(dbtype);
     type = json_string(dbtype);
     json_object_set(json, "type", type);
 
