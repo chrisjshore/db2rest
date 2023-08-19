@@ -105,7 +105,7 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
   struct db2DbDirCloseScanStruct close;
   unsigned short entries, handle, pHandle;
   json_t *json, *array, *sqlobj, *name, *path, *type;
-  char dbname[8], drive[20], dbtype[20];
+  char dbname[SQL_DBNAME_SZ], drive[SQL_DB_PATH_SZ], dbtype[SQL_DBTYP_SZ];
 
   open.piPath = NULL;
   open.oHandle = 0;
@@ -116,44 +116,44 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
   array = json_array();
 
   for (int i =0; i < open.oNumEntries; i++) {
-        json = json_object();
+    json = json_object();
 
-        db2DbDirGetNextEntry(db2Version11580, &entry, &sqlca);
-        sqlobj = create_json(&sqlca);
-        json_object_set(json, "getentry", sqlobj);
+    db2DbDirGetNextEntry(db2Version11580, &entry, &sqlca);
+    sqlobj = create_json(&sqlca);
+    json_object_set(json, "getentry", sqlobj);
 
-        strncpy(dbname, entry.poDbDirEntry->dbname, sizeof(dbname));
-        char *copy = dbname;
-        char *trimmed = strtok_r(copy, "\r\t\n ", &copy);
-        name = json_string(trimmed);
-        json_object_set(json, "database", name);
+    strncpy(dbname, entry.poDbDirEntry->dbname, sizeof(dbname));
+    char *copy = dbname;
+    char *trimmed = strtok_r(copy, "\r\t\n ", &copy);
+    name = json_string(trimmed);
+    json_object_set(json, "database", name);
 
-        strncpy(drive, entry.poDbDirEntry->drive, sizeof(drive));
-        copy = drive;
-        trimmed = strtok_r(copy, "\r\t\n ", &copy);
-        path = json_string(trimmed);
-        json_object_set(json, "path", path);
+    strncpy(drive, entry.poDbDirEntry->drive, sizeof(drive));
+    copy = drive;
+    trimmed = strtok_r(copy, "\r\t\n ", &copy);
+    path = json_string(trimmed);
+    json_object_set(json, "path", path);
 
-        strncpy(dbtype, entry.poDbDirEntry->dbtype, sizeof(dbtype));
+    strncpy(dbtype, entry.poDbDirEntry->dbtype, sizeof(dbtype));
 
-        int i = strlen(dbtype) - 1;
-        while (i > 0) {
-            if (isprint(dbtype[i]) == 0 || isspace(dbtype[i]) != 0 || iscntrl(dbtype[i]) != 0) {
-                i--;
-            }
-            else break;
-        }
+    int i = strlen(dbtype) - 1;
+    while (i > 0) {
+      if (isprint(dbtype[i]) == 0 || isspace(dbtype[i]) != 0 || iscntrl(dbtype[i]) != 0 || ispunct(dbtype[i]) != 0) {
+        i--;
+      }
+      else break;
+    }
 
-        dbtype[i + 1] = '\0';
+    dbtype[i + 1] = '\0';
 
-        if (dbtype[0] == '\2') {
-          memmove(&dbtype[0], &dbtype[1], strlen(dbtype) - 1);
-        }
+    if (dbtype[0] == '\2') {
+      memmove(&dbtype[0], &dbtype[1], strlen(dbtype) - 1);
+    }
 
-        type = json_string(dbtype);
-        json_object_set(json, "type", type);
+    type = json_string(dbtype);
+    json_object_set(json, "type", type);
 
-        json_array_append(array, json);
+    json_array_append(array, json);
   }
 
   close.iHandle = open.oHandle;
