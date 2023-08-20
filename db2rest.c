@@ -69,18 +69,18 @@ void db2_stop_instance(struct sqlca *sqlca) {
 
 void trimDb2String(char str[]) {
   int i = strlen(str) - 1;
-    while (i > 0) {
-      if (isprint(str[i]) == 0 || isspace(str[i]) != 0 || iscntrl(str[i]) != 0 || ispunct(str[i]) != 0) {
-        i--;
-      }
-      else break;
+  while (i > 0) {
+    if (isprint(str[i]) == 0 || isspace(str[i]) != 0 || iscntrl(str[i]) != 0 || ispunct(str[i]) != 0) {
+      i--;
     }
+    else break;
+  }
 
-    str[i + 1] = '\0';
+  str[i + 1] = '\0';
 
-    if (str[0] == '\2') {
-      memmove(&str[0], &str[1], strlen(str) - 1);
-    }
+  if (str[0] == '\2') {
+    memmove(&str[0], &str[1], strlen(str) - 1);
+  }
 }
 
 json_t* create_json(struct sqlca *sqlca) {
