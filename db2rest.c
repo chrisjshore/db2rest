@@ -121,7 +121,7 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
   struct db2DbDirCloseScanStruct close;
   unsigned short entries, handle, pHandle;
   json_t *json, *array, *sqlobj, *name, *path, *type;
-  char dbname[SQL_DBNAME_SZ], drive[SQL_DB_PATH_SZ], dbtype[SQL_DBTYP_SZ];
+  char dbname[SQL_DBNAME_SZ], drive[SQL_DB_PATH_SZ], dbtype[SQL_DBTYP_SZ], map_value[SQL_DBNAME_SZ];
 
   open.piPath = NULL;
   open.oHandle = 0;
@@ -140,6 +140,20 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
 
     strncpy(dbname, entry.poDbDirEntry->dbname, sizeof(dbname));
     trimDb2String(dbname);
+
+    // prepare for filter
+    if (request->map_url->values[0] != NULL) {
+      strncpy(map_value, request->map_url->values[0], sizeof(map_value));
+    }
+    else {
+      strncpy(map_value,"/", sizeof(map_value));
+    }
+
+    // filter by database name
+    if (strcmp("/", map_value) != 0 && strcasecmp(dbname, map_value) != 0) {
+      continue;
+    }
+
     name = json_string(dbname);
     json_object_set(json, "database", name);
 
@@ -161,6 +175,12 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
 
   ulfius_set_json_body_response(response, 200, array);
   json_decref(json);
+  return U_CALLBACK_CONTINUE;
+}
+
+int callback_databases_all (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  // this is stupid...
+  callback_databases(request, response, user_data);
   return U_CALLBACK_CONTINUE;
 }
 
@@ -243,7 +263,8 @@ int main(void) {
   }
   // Endpoint list declarations
   ulfius_add_endpoint_by_val(&instance, "GET", "/helloworld", NULL, 0, &callback_hello_world, NULL);
-  ulfius_add_endpoint_by_val(&instance, "GET", "/databases", NULL, 0, &callback_databases, NULL);
+  ulfius_add_endpoint_by_val(&instance, "GET", "/databases", "/:name", 0, &callback_databases, NULL);
+  ulfius_add_endpoint_by_val(&instance, "GET", "/databases", NULL, 0, &callback_databases_all, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/startinstance", NULL, 0, &callback_start_instance, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/stopinstance", NULL, 0, &callback_stop_instance, NULL);
   ulfius_add_endpoint_by_val(&instance, "GET", "/restartinstance", NULL, 0, &callback_restart_instance, NULL);
