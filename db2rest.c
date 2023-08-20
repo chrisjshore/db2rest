@@ -141,13 +141,7 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
     strncpy(dbname, entry.poDbDirEntry->dbname, sizeof(dbname));
     trimDb2String(dbname);
 
-    // prepare for filter
-    if (request->map_url->values[0] != NULL) {
-      strncpy(map_value, request->map_url->values[0], sizeof(map_value));
-    }
-    else {
-      strncpy(map_value,"/", sizeof(map_value));
-    }
+    strncpy(map_value, request->map_url->values[0], sizeof(map_value));
 
     // filter by database name
     if (strcmp("/", map_value) != 0 && strcasecmp(dbname, map_value) != 0) {
@@ -180,6 +174,7 @@ int callback_databases (const struct _u_request * request, struct _u_response * 
 
 int callback_databases_all (const struct _u_request * request, struct _u_response * response, void * user_data) {
   // this is stupid...
+  request->map_url->values[0] = "/";
   callback_databases(request, response, user_data);
   return U_CALLBACK_CONTINUE;
 }
